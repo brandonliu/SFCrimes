@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>D3 Test</title>
+        <script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+    </head>
+    <body>
+        <p>
+            <label for="aRadius" 
+                style="display: inline-block; width: 240px; text-align: right">
+                radius A = <span id="aRadius-value">…</span>
+            </label>
+            <input type="range" min="0.1" max="3" id="aRadius">
+        </p>
+        <p>
+            <label for="bRadius" 
+                style="display: inline-block; width: 240px; text-align: right">
+                radius B = <span id="bRadius-value">…</span>
+            </label>
+            <input type="range" min="0.1" max="3" step="0.1" id="bRadius">
+        </p>
+
+        <div class="filter_options">
+            <input class="filter_button" id="intersect_button" type="checkbox">Intersection A, B</input><br>
+
+            <!-- Filter by day of week -->
+            <input class="filter_button" id="sunday_button" type="checkbox">Sunday</input><br>
+            <input class="filter_button" id="monday_button" type="checkbox">Monday</input><br>
+            <input class="filter_button" id="tuesday_button" type="checkbox">Tuesday</input><br>
+            <input class="filter_button" id="wednesday_button" type="checkbox">Wednesday</input><br>
+            <input class="filter_button" id="thursday_button" type="checkbox">Thursday</input><br>
+            <input class="filter_button" id="friday_button" type="checkbox">Friday</input><br>
+            <input class="filter_button" id="saturday_button" type="checkbox">Saturday</input><br>
+
+            <!-- Filter by date range -->
+            <input class="filter_button" id="date_button" checked="checked"type="checkbox">Filter by date range</input><br>
+            <label>Choose a range between 2016-03-01 and 2016-04-01</label>
+            <input class="filter_button" type="date" id="start_date" name="start_date" min="2016-03-01" max="2016-04-01">
+            <input class="filter_button" type="date" id="end_date" name="end_date" min="2016-03-01" max="2016-04-01"><br>
+
+            <!-- Filter by time -->
+            <input class="filter_button" id="time_button" type="checkbox">Filter by time range</input><br>
+            <input class="filter_button" type="time" id="start_time" name="time" />
+            <input class="filter_button" type="time" id="end_time" name="time" />
+
+        </div>
+
+
+        <script type="text/javascript" src="data/scpd_incidents.json"></script>
+        <script type="text/javascript">
+            // Set up size
+
+            const MILE_PIXEL_RATIO = 71.89980860331622;
+
+            var width = 750,
+                height = width;
+
+            // Set up projection that map is using
+            var projection = d3.geo.mercator()
+                .center([-122.433701, 37.767683]) // San Francisco, roughly
+                .scale(225000)
+                .translate([width / 2, height / 2]);
+            // This is the mapping between <longitude, latitude> position to <x, y> pixel position on the map
+            // projection([lon, lat]) returns [x, y]
+
+            // Add an svg element to the DOM
+            var svg = d3.select("body").append("svg")
+                .attr('class', 'svg')
+                .attr("width", width)
+                .attr("height", height);
+
+            // Add svg map at correct size, assumes map is saved in a subdirectory called "data"
+            svg.append("image")
+                      .attr("width", width)
+                      .attr("height", height)
+                      .attr("xlink:href", "data/sf-map.svg");
+
+            var startPoints = [
+                [width/2, height/2, "A"], [width/3, height/3, "B"]
+
+            ];
+
+            
+            var drag = d3.behavior.drag()  
+             .on('dragstart', function() { 
+                d3.select(this).style('fill', 'red');;
+            })
+             .on('drag', function() { d3.select(this).attr('cx', d3.event.x)
+                                            .attr('cy', d3.event.y); })
+             .on('dragend', function() { 
+                var elem = d3.select(this);
+                if (elem.attr("class") === 'circleA') {
+                    elem.style('fill', 'orange');
+                } else if (elem.attr("class") === 'circleB') {
+                    elem.style('fill', 'blue');
+                }
+                filterPoints();
+            });
+
+            var pointA = svg.selectAll('.circleA')  
+                .data([{ x: (width / 2), y: (height / 2), r: 5 }])
+                .enter()
+                .append('circle')
+                .attr('class', 'circleA')
+                .attr('cx', function(d) { return d.x; })
+                .attr('cy', function(d) { return d.y; })
+                .attr('r', function(d) { return d.r; })
+                .call(drag)
+                .style('fill', 'orange')
+                .style('opacity', 0.2);
+
+            // Have B and A be different color circles instead of a text label, label and color the box for the radius slider
+
+            var pointB = svg.selectAll('.circleB')  
+                .data([{ x: (width / 3), y: (height / 3), r: 5 }])
+                .enter()
+                .append('circle')
+                .attr('class', 'circleB')
+                .attr('cx', function(d) { return d.x; })
+                .attr('cy', function(d) { return d.y; })
+                .attr('r', function(d) { return d.r; })
+                .style("fill", "blue") 
+                .style('opacity', 0.2)
+                .call(drag);
+
+            /* To highlight points where killings overlap in radius,
+                calculate the distance between the points, use math
+             */
+
+
+
+
+            d3.select("#aRadius").on("input", function() {
+                updateA(+this.value);
+            });
+
+            d3.select("#bRadius").on("input", function() {
+                updateB(+this.value);
+            });
+
+            updateA(0.5);
+            updateB(0.5);
+
+            // update the element A circle
+            function updateA(aRadius) {
+
+
+              // adjust the text on the range slider
+              d3.select("#aRadius-value").text(aRadius);
+              d3.select("#aRadius").property("value", aRadius);
+
+              // update the circle radius
+              svg.selectAll('.circleA') 
+                .attr("r", aRadius * MILE_PIXEL_RATIO);
+            }
+
+            // update B circle
+            function updateB(bRadius) {
+
+
+              // adjust the text on the range slider
+              d3.select("#bRadius-value").text(bRadius);
+              d3.select("#bRadius").property("value", bRadius);
+            
+
+
+              // update the circle radius
+              svg.selectAll('.circleB') 
+                .attr("r", bRadius * MILE_PIXEL_RATIO);
+            }
+
+            var crimeData = JSON.parse(data);
+            var crimes = svg.selectAll(".crimePoint")
+                            .data(crimeData)
+                            .enter()
+                            .append("circle")
+                            .attr("class", "crimePoint")
+                            .attr('cx', function(d) {
+                                return projection(d.Location)[0];
+                            })
+                            .attr('cy', function(d) {
+                                return projection(d.Location)[1];
+                            })
+                            .attr('r', 1);
+
+
+            /* Filter data at intersection */
+
+            // http://stackoverflow.com/questions/15044385/d3-map-with-checkbox-filtering
+
+            // do stuff on click but also when you drag around the points
+
+
+            /* Boolean returns true if a given point d is within the intersection of the two circles A and B */
+            function filterIntersection_AB(d, cir_A, cir_B) {
+                var cent_Ax_dist = projection(d.Location)[0] - cir_A.getAttribute("cx");
+                var cent_Ay_dist = projection(d.Location)[1] - cir_A.getAttribute("cy");
+                // y - center coordinate
+                var cent_Bx_dist = projection(d.Location)[0] - cir_B.getAttribute("cx");
+                var cent_By_dist = projection(d.Location)[1] - cir_B.getAttribute("cy");
+
+                return (Math.pow(cent_Ax_dist, 2) + Math.pow(cent_Ay_dist, 2) <= Math.pow(cir_A.getAttribute("r"),2) && Math.pow(cent_Bx_dist, 2) + Math.pow(cent_By_dist, 2) <= Math.pow(cir_B.getAttribute("r"), 2))
+            }
+
+            var checkedDays = {Sunday: true, Monday: true, Tuesday: true, Wednesday: true, Thursday: true, Friday: false, Saturday: true};
+            var intersect_toggle = true;
+
+            var monthNames = [
+                "January", "February", "March",
+                "April", "May", "June", "July",
+                "August", "September", "October",
+                "November", "December"
+            ];
+
+            /* Figuring out the mile-pixel scale ratio */
+            var var1 = crimeData[0];
+            var var2 = crimeData[50];
+            var lon1 = var1.Location[0]; // lon, lat
+            var lat1 = var1.Location[1];
+            var lon2 = var2.Location[0];
+            var lat2 = var2.Location[1];
+
+            var great_arc_dist = d3.geo.distance(var1.Location, var2.Location);
+            var proj1 = projection(var1.Location); // x, y
+            var proj2 = projection(var2.Location);
+            console.log(var1.Location, var2.Location);
+            console.log(proj1, proj2);
+            var pixel_dist = Math.sqrt(Math.pow(proj2[1] - proj1[1], 2) + Math.pow(proj2[0] - proj1[0], 2));
+            // 3959 miles
+            console.log(pixel_dist, great_arc_dist * 3959);
+            console.log(pixel_dist / (great_arc_dist * 3959));
+
+
+
+            var date_range_filter_toggle = true;
+            var time_range_filter_toggle = true;
+
+            /* Boolean returns true if a given point d satisfies the current dates that are being filtered */
+            function filterDays(d) {
+                return checkedDays[d.DayOfWeek];
+            }
+
+            // var crime_types = [];
+            // var n = crimeData.length;
+            // for (var i = 0; i < n; i++) {
+            //    if (crime_types.indexOf(crimeData[i].Category) === -1) {
+            //     crime_types.push(crimeData[i].Category);
+            //    }
+            // }
+            // console.log(crime_types);
+            var crime_types = ["OTHER OFFENSES", "NON-CRIMINAL", "ASSAULT", "LARCENY/THEFT", "WARRANTS", "DISORDERLY CONDUCT", "TRESPASS", "SUSPICIOUS OCC", "DRUG/NARCOTIC", "VANDALISM", "SEX OFFENSES, FORCIBLE", "BURGLARY", "VEHICLE THEFT", "DRUNKENNESS", "STOLEN PROPERTY", "MISSING PERSON", "ARSON", "ROBBERY", "WEAPON LAWS", "FRAUD", "KIDNAPPING", "SEX OFFENSES, NON FORCIBLE", "SECONDARY CODES", "LIQUOR LAWS", "LOITERING", "FORGERY/COUNTERFEITING", "EMBEZZLEMENT", "DRIVING UNDER THE INFLUENCE", "GAMBLING", "EXTORTION", "RUNAWAY", "SUICIDE", "BRIBERY", "FAMILY OFFENSES", "PROSTITUTION"];
+
+            /* Filters / updates the points that appear on the map. Called by drag functions and click events */
+            function filterPoints() {
+                var cir_A = document.getElementsByClassName("circleA")[0];
+                var cir_B = document.getElementsByClassName("circleB")[0];
+                    // Get values of user-inputted date range, convert to number value for '===' comparison
+                    var start_date = new Date(document.getElementById("start_date").value);
+                    start_date.setDate(start_date.getDate() + 1);
+                    start_date.setHours(0,0,0,0);
+                    start_date = Number(start_date);
+                    var end_date = new Date(document.getElementById("end_date").value);
+                    end_date.setDate(end_date.getDate() + 1);
+                    end_date.setHours(0,0,0,0);
+                    end_date = Number(end_date);
+
+                    var start_time = document.getElementById("start_time").value;
+                    var end_time = document.getElementById("end_time").value;
+                    
+
+                    svg.selectAll(".crimePoint")
+                        .attr("visibility", function(d) {
+                            
+                            if (intersect_toggle && filterIntersection_AB(d, cir_A, cir_B) && filterDays(d)) {
+                                return "visible";
+                            }
+                            if (filterDays(d) && !intersect_toggle) {
+                                return "visible";
+                            }
+                            if (date_range_filter_toggle) {
+                                var date = new Date();
+                                var day = Number(d.Date.substring(8,10));
+                                var monthIndex = Number(d.Date.substring(5,7)) - 1;
+                                var year = d.Date.substring(0, 4);
+                                
+                                var dateString = monthNames[monthIndex].toString() + " " + day.toString() + ", " + year.toString();
+                                
+                                var new_date = new Date(dateString);
+                               
+                                if (Number(new_date) >= start_date && Number(new_date <= end_date)) {
+                                    return "visible";
+                                } /*else {
+                                    return "hidden";
+
+                                }*/
+                            } 
+                            if (time_range_filter_toggle) {
+                                var d_time = d.Time;
+                                if (d_time >= start_time && d_time <= end_time) {
+                                    return "visible";
+                                }
+                            }
+
+                            return "hidden";
+
+                        })
+
+            }
+
+
+            d3.selectAll(".filter_button").on("change", function() {
+                checkedDays["Sunday"] = document.getElementById("sunday_button").checked;
+                checkedDays["Monday"] = document.getElementById("monday_button").checked;
+                checkedDays["Tuesday"] = document.getElementById("tuesday_button").checked;
+                checkedDays['Wednesday'] = document.getElementById("wednesday_button").checked;
+                checkedDays['Thursday'] = document.getElementById("thursday_button").checked;
+                checkedDays['Friday'] = document.getElementById("friday_button").checked;
+                checkedDays['Saturday'] = document.getElementById("saturday_button").checked;
+                intersect_toggle = document.getElementById("intersect_button").checked;
+                date_range_filter_toggle = document.getElementById("date_button").checked;
+                time_range_filter_toggle = document.getElementById("time_button").checked;
+                filterPoints();
+
+
+            });
+
+        </script>
+    </body>
+</html>
